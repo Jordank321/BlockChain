@@ -47,33 +47,19 @@ namespace BlockChainNode.Controllers
 
             System.IO.File.WriteAllText(_options.NodesFilePath, JsonConvert.SerializeObject(_nodes));
 
+            foreach (var node in _nodes)
+            {
+                new HttpClient().PostAsync(new Uri(node.Url) + $"register/{url}", new StringContent(string.Empty));
+            }
+
             return Accepted();
         }
 
         [HttpPost("resolve")]
         public IActionResult ResolveBlocks([FromBody] ResolveRequest resolveRequest)
         {
-            var matchingLastBlock = _chain.Blocks.FirstOrDefault(b => b.Index == resolveRequest.LastBlockIndex);
-            if (matchingLastBlock != null && resolveRequest.LastBlockHash == matchingLastBlock.LastBlockHash)
-            {
-                if (Chain.Hash(matchingLastBlock) == resolveRequest.NewBlock.LastBlockHash
-                    && Chain.ValidateProof(matchingLastBlock, resolveRequest.NewBlock.Proof))
-                {
-                    if (_chain.Blocks.Count > matchingLastBlock.Index + 1)
-                    {
-                        return Chain.Hash(_chain.Blocks.ElementAt(matchingLastBlock.Index + 1)) ==
-                               Chain.Hash(resolveRequest.NewBlock)
-                            ? Ok()
-                            : StatusCode(304);
-                    }
-                    else if (_chain.Blocks.Count == matchingLastBlock.Index + 1)
-                    {
-                        _chain.MineBlock(resolveRequest.NewBlock.Proof, resolveRequest.NewBlock.Transactions.First(t => t.From == 0).To);
-                    }
-                }
-            }
-
-            return BadRequest();
+            _chain.MineBlock(resolveRequest.NewBlock.Proof, resolveRequest.NewBlock.Transactions.First(t => t.From == 0).To);
+            return Ok();
         }
     }
 }
